@@ -12,11 +12,7 @@ url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 valores_coletados = []
 
 # 49 dias * 24h * 60min * 2 checagens por min (a cada 30s)
-TOTAL_COLETAS_49_DIAS = (49 * 24 * 60 * 2)
-
-# Definir as variáveis de contagem dos dias restantes
-dias_restantes = 48  # Dias restantes para a projeção (até 28/05/2025)
-TOTAL_COLETAS_RESTANTES = dias_restantes * 24 * 60 * 2  # 2 checagens por minuto, 60 minutos por hora, 24 horas por dia
+TOTAL_COLETAS_RESTANTES = 48 * 24 * 60 * 60  # Número total de segundos restantes (48 dias em segundos)
 
 async def fetch_pagina(client, pagina):
     url = url_base.format(pagina)
@@ -54,20 +50,33 @@ async def calcular_total():
         return sum(resultados)
 
 async def main_loop():
+    previous_total = 0  # Armazenar o total da checagem anterior
     while True:
         total_atual = await calcular_total()
         valores_coletados.append(total_atual)
 
-        # Projeção de crescimento
-        projeção_49_dias = int(total_atual + (total_atual * TOTAL_COLETAS_RESTANTES))
+        # Calcular a diferença de pontos entre a checagem atual e a anterior
+        if previous_total != 0:
+            incremento_por_60_segundos = total_atual - previous_total
+        else:
+            incremento_por_60_segundos = 0
+
+        # Calcular a produção por segundo (incremento a cada 60 segundos)
+        producao_por_segundo = incremento_por_60_segundos / 60
+
+        # Calcular a projeção para os próximos 48 dias em segundos
+        projeção_48_dias = total_atual + (producao_por_segundo * TOTAL_COLETAS_RESTANTES)
 
         mensagem = (
             f"📊 Total atual de pontos: {total_atual:,}\n"
-            f"🧮 Projeção para os próximos {dias_restantes} dias (até 28/05/2025): {projeção_49_dias:,} pontos"
+            f"🧮 Projeção para os próximos 48 dias (até 28/05/2025): {int(projeção_48_dias):,} pontos\n"
+            f"⏱️ Incremento a cada 60 segundos: {incremento_por_60_segundos:,} pontos"
         )
 
         print(mensagem)
         await enviar_telegram(mensagem)
+
+        previous_total = total_atual  # Atualizar o total para a próxima checagem
         await asyncio.sleep(60)  # A cada 60 segundos
 
 asyncio.run(main_loop())
