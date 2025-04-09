@@ -11,8 +11,8 @@ url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 
 valores_coletados = []
 
-# 49 dias * 24h * 60min * 2 checagens por min (a cada 30s)
-TOTAL_COLETAS_RESTANTES = 48 * 24 * 60 * 60  # Número total de segundos restantes (48 dias em segundos)
+# 48 dias restantes * 24h * 60min
+TOTAL_MINUTOS_RESTANTES = 48 * 24 * 60  # Número total de minutos restantes (48 dias em minutos)
 
 async def fetch_pagina(client, pagina):
     url = url_base.format(pagina)
@@ -57,20 +57,17 @@ async def main_loop():
 
         # Calcular a diferença de pontos entre a checagem atual e a anterior
         if previous_total != 0:
-            incremento_por_60_segundos = total_atual - previous_total
+            incremento_por_minuto = total_atual - previous_total
         else:
-            incremento_por_60_segundos = 0
+            incremento_por_minuto = 0
 
-        # Calcular a produção por segundo (incremento a cada 60 segundos)
-        producao_por_segundo = incremento_por_60_segundos / 60
-
-        # Calcular a projeção para os próximos 48 dias em segundos
-        projeção_48_dias = total_atual + (producao_por_segundo * TOTAL_COLETAS_RESTANTES)
+        # Projeção para os próximos 48 dias em minutos
+        projeção_48_dias = total_atual + (incremento_por_minuto * TOTAL_MINUTOS_RESTANTES)
 
         mensagem = (
             f"📊 Total atual de pontos: {total_atual:,}\n"
             f"🧮 Projeção para os próximos 48 dias (até 28/05/2025): {int(projeção_48_dias):,} pontos\n"
-            f"⏱️ Incremento a cada 60 segundos: {incremento_por_60_segundos:,} pontos"
+            f"⏱️ Incremento a cada 1 minuto: {incremento_por_minuto:,} pontos"
         )
 
         print(mensagem)
