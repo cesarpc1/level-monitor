@@ -7,6 +7,10 @@ TELEGRAM_CHAT_ID = "5073217115"
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 }
+
+# Sua carteira específica
+CARTEIRA_ENDERECO = "0x4cc929294C49434B59ECa0aA96653dA49aC2b10e"
+
 url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 
 valores_coletados = []
@@ -24,6 +28,18 @@ async def fetch_pagina(client, pagina):
         return sum(int(item["balance"]["accrued"]) for item in usuarios if "balance" in item and "accrued" in item["balance"])
     except Exception as e:
         print(f"❌ Erro na página {pagina}: {e}")
+        return 0
+
+# Função para buscar os pontos específicos da sua carteira
+async def buscar_pontos_carteira(client, endereco_carteira):
+    url = f"https://api.level.money/v1/xp/balances/{endereco_carteira}"
+    try:
+        resposta = await client.get(url)
+        resposta.raise_for_status()
+        dados = resposta.json()
+        return int(dados.get("balance", 0))  # Retorna os pontos da carteira
+    except Exception as e:
+        print(f"❌ Erro ao buscar pontos da carteira {endereco_carteira}: {e}")
         return 0
 
 async def enviar_telegram(mensagem):
@@ -52,28 +68,34 @@ async def calcular_total():
 async def main_loop():
     previous_total = 0  # Armazenar o total da checagem anterior
     while True:
-        total_atual = await calcular_total()
-        valores_coletados.append(total_atual)
+        async with httpx.AsyncClient() as client:
+            # Buscar pontos da sua carteira
+            pontos_carteira = await buscar_pontos_carteira(client, CARTEIRA_ENDERECO)
 
-        # Calcular a diferença de pontos entre a checagem atual e a anterior
-        if previous_total != 0:
-            incremento_por_minuto = total_atual - previous_total
-        else:
-            incremento_por_minuto = 0
+            # Calcular pontos totais no leaderboard
+            total_atual = await calcular_total()
+            valores_coletados.append(total_atual)
 
-        # Projeção para os próximos 48 dias em minutos
-        projeção_48_dias = total_atual + (incremento_por_minuto * TOTAL_MINUTOS_RESTANTES)
+            # Calcular a diferença de pontos entre a checagem atual e a anterior
+            if previous_total != 0:
+                incremento_por_minuto = total_atual - previous_total
+            else:
+                incremento_por_minuto = 0
 
-        mensagem = (
-            f"📊 Total atual de pontos: {total_atual:,}\n"
-            f"🧮 Projeção para os próximos 48 dias (até 28/05/2025): {int(projeção_48_dias):,} pontos\n"
-            f"⏱️ Incremento a cada 10 minutos: {incremento_por_minuto * 10:,} pontos"
-        )
+            # Projeção para os próximos 48 dias em minutos
+            projeção_48_dias = total_atual + (incremento_por_minuto * TOTAL_MINUTOS_RESTANTES)
 
-        print(mensagem)
-        await enviar_telegram(mensagem)
+            mensagem = (
+                f"📊 **Total de pontos do seu endereço ({CARTEIRA_ENDERECO})**: {pontos_carteira:,}\n"
+                f"📊 **Total atual de pontos do leaderboard**: {total_atual:,}\n"
+                f"🧮 **Projeção para os próximos 48 dias (até 28/05/2025)**: {int(projeção_48_dias):,} pontos\n"
+                f"⏱️ **Incremento a cada 10 minutos**: {incremento_por_minuto * 10:,} pontos"
+            )
 
-        previous_total = total_atual  # Atualizar o total para a próxima checagem
-        await asyncio.sleep(600)  # A cada 10 minutos (600 segundos)
+            print(mensagem)
+            await enviar_telegram(mensagem)
+
+            previous_total = total_atual  # Atualizar o total para a próxima checagem
+            await asyncio.sleep(600)  # A cada 10 minutos (600 segundos)
 
 asyncio.run(main_loop())
