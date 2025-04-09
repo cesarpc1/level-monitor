@@ -67,13 +67,13 @@ async def main_loop():
         mensagem = (
             f"📊 Total atual de pontos: {total_atual:,}\n"
             f"🧮 Projeção para os próximos 48 dias (até 28/05/2025): {int(projeção_48_dias):,} pontos\n"
-            f"⏱️ Incremento a cada 1 minuto: {incremento_por_minuto:,} pontos"
+            f"⏱️ Incremento a cada 10 minutos: {incremento_por_minuto * 10:,} pontos"
         )
 
         print(mensagem)
         await enviar_telegram(mensagem)
 
         previous_total = total_atual  # Atualizar o total para a próxima checagem
-        await asyncio.sleep(60)  # A cada 60 segundos
+        await asyncio.sleep(600)  # A cada 10 minutos (600 segundos)
 
 asyncio.run(main_loop())
