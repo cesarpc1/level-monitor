@@ -1,6 +1,5 @@
 import asyncio
 import httpx
-from datetime import datetime, timedelta
 
 TELEGRAM_BOT_TOKEN = "8012126560:AAGKMQUaOWOQRkL_4K2vj2gTNtlnoiYOk1M"
 TELEGRAM_CHAT_ID = "5073217115"
@@ -12,16 +11,12 @@ url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 
 valores_coletados = []
 
-# Configuração inicial
-inicio_coleta = datetime.now()
-DIAS_PROJECAO = 49  # O número de dias de projeção total
-CHECAGENS_POR_DIA = 24 * 60 * 2  # 30s
+# 49 dias * 24h * 60min * 2 checagens por min (a cada 30s)
+TOTAL_COLETAS_49_DIAS = (49 * 24 * 60 * 2)
 
-# 28 de maio às 00:00 como data de término da contagem
-data_termino = datetime(2025, 5, 28, 0, 0)
-
-# Limite mínimo para média por checagem
-LIMIT_MINIMO_MEDIA = 100000  # Ajuste conforme necessário
+# Definir as variáveis de contagem dos dias restantes
+dias_restantes = 48  # Dias restantes para a projeção (até 28/05/2025)
+TOTAL_COLETAS_RESTANTES = dias_restantes * 24 * 60 * 2  # 2 checagens por minuto, 60 minutos por hora, 24 horas por dia
 
 async def fetch_pagina(client, pagina):
     url = url_base.format(pagina)
@@ -30,11 +25,7 @@ async def fetch_pagina(client, pagina):
         resposta.raise_for_status()
         dados = resposta.json()
         usuarios = dados.get("leaderboard", [])
-        return sum(
-            int(item["balance"]["accrued"])
-            for item in usuarios
-            if "balance" in item and "accrued" in item["balance"]
-        )
+        return sum(int(item["balance"]["accrued"]) for item in usuarios if "balance" in item and "accrued" in item["balance"])
     except Exception as e:
         print(f"❌ Erro na página {pagina}: {e}")
         return 0
@@ -67,38 +58,16 @@ async def main_loop():
         total_atual = await calcular_total()
         valores_coletados.append(total_atual)
 
-        if len(valores_coletados) >= 2:
-            diferencas = [
-                valores_coletados[i] - valores_coletados[i - 1]
-                for i in range(1, len(valores_coletados))
-            ]
-            media_por_coleta = sum(diferencas) / len(diferencas)
-        else:
-            media_por_coleta = 0
-
-        # Corrige a média caso seja muito pequena
-        if media_por_coleta < LIMIT_MINIMO_MEDIA:
-            media_por_coleta = LIMIT_MINIMO_MEDIA
-
-        # Cálculo dinâmico de dias restantes até 28 de maio
-        dias_restantes = max(0, (data_termino - datetime.now()).days)
-        total_coletas_restantes = dias_restantes * CHECAGENS_POR_DIA
-
-        # Projeção com base no valor atual + média x número de coletas restantes
-        projecao_ajustada = int(total_atual + (media_por_coleta * total_coletas_restantes))
-
-        # Garante que a projeção nunca seja negativa
-        if projecao_ajustada < 0:
-            projecao_ajustada = 0
+        # Projeção de crescimento
+        projeção_49_dias = int(total_atual + (total_atual * TOTAL_COLETAS_RESTANTES))
 
         mensagem = (
             f"📊 Total atual de pontos: {total_atual:,}\n"
-            f"📈 Média por checagem: {int(media_por_coleta):,}\n"
-            f"🧮 Projeção para os próximos {dias_restantes} dias (até {data_termino.strftime('%d/%m/%Y')}): {projecao_ajustada:,} pontos"
+            f"🧮 Projeção para os próximos {dias_restantes} dias (até 28/05/2025): {projeção_49_dias:,} pontos"
         )
 
         print(mensagem)
         await enviar_telegram(mensagem)
-        await asyncio.sleep(60)  # Executa a cada 60 segundos
+        await asyncio.sleep(60)  # A cada 60 segundos
 
 asyncio.run(main_loop())
