@@ -1,2 +1,2 @@
-pyTelegramBotAPI==4.14.0pyTelegramBotAPI==4.14.0
+pyTelegramBotAPI==4.14.0
 httpx
