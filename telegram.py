@@ -106,9 +106,13 @@ async def trackear_posicao():
             # Calcular o incremento de pontos nos últimos 5 minutos
             incremento_5minutos = pontos_posicao - previous_pontos if previous_pontos != 0 else 0
 
+            # Calcular a taxa de incremento por minuto
+            taxa_por_minuto = incremento_5minutos / 5 if incremento_5minutos != 0 else 0
+
             # Projeção dos pontos até 28 de maio de 2025
             minutos_restantes = get_remaining_minutes(END_DATE_WALLET)
-            projeção = pontos_posicao + (incremento_5minutos * minutos_restantes)
+            incremento_projetado = taxa_por_minuto * minutos_restantes
+            projeção = pontos_posicao + incremento_projetado
 
             # Montar a mensagem
             mensagem = (
@@ -138,9 +142,12 @@ async def main_loop():
             # Calcular o incremento total do leaderboard nos últimos 30 segundos
             incremento_30segundos_total = total_atual - previous_total if previous_total != 0 else 0
 
+            # Calcular a taxa de incremento por minuto
+            taxa_por_minuto = incremento_30segundos_total * 2  # 30 segundos = 0.5 minutos, então x2 para 1 minuto
+
             # Projeção total do leaderboard até 29 de agosto
             minutos_restantes = get_remaining_minutes(END_DATE_LEADERBOARD)
-            projeção_total = total_atual + (incremento_30segundos_total * minutos_restantes)
+            projeção_total = total_atual + (taxa_por_minuto * minutos_restantes)
 
             # Montar a mensagem
             mensagem = (
