@@ -1,5 +1,6 @@
 import asyncio
 import httpx
+from datetime import datetime, date
 
 TELEGRAM_BOT_TOKEN = "8012126560:AAGKMQUaOWOQRkL_4K2vj2gTNtlnoiYOk1M"
 TELEGRAM_CHAT_ID = "5073217115"
@@ -10,10 +11,20 @@ headers = {
 
 url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 
-# 48 dias restantes * 24h * 60min
-TOTAL_MINUTOS_RESTANTES = 48 * 24 * 60  # Número total de minutos restantes (48 dias em minutos)
+# Data final para a projeção
+END_DATE = date(2025, 8, 29)
 
-# Função para buscar a posição desejada (72, 68 ou 85)
+# Função para calcular dias restantes até 29 de agosto de 2025
+def get_remaining_days():
+    today = date.today()
+    delta = END_DATE - today
+    return max(0, delta.days)  # Garante que não retorna negativo após a data
+
+# Função para calcular minutos restantes até 29 de agosto de 2025
+def get_remaining_minutes():
+    return get_remaining_days() * 24 * 60  # Dias restantes * horas * minutos
+
+# Função para buscar a posição desejada (67)
 async def buscar_posicao_desejada(client, posicao_desejada):
     url = url_base.format(1)
     try:
@@ -70,78 +81,72 @@ async def enviar_telegram(mensagem):
         except Exception as e:
             print(f"❌ Erro ao enviar para Telegram: {e}")
 
-# Função para trackear a posição 72 (ou 68 ou 85)
+# Função para trackear a posição 67
 async def trackear_posicao():
-    posicao_atual = 72
+    posicao_fixa = 67  # Sempre trackear a posição 67
     previous_pontos = 0  # Armazenar os pontos da posição anterior
     while True:
-        async with httpx.AsyncClient() as client:
-            resultado = await buscar_posicao_desejada(client, posicao_atual)
+        async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+            resultado = await buscar_posicao_desejada(client, posicao_fixa)
             pontos_posicao = resultado["pontos"]
             posicao = resultado["posicao"]
             
-            # Caso a posição mude para 68 ou 85, alteramos o tracking
-            if posicao in [68, 85]:
-                posicao_atual = posicao
-
             # Calcular o incremento de pontos nos últimos 5 minutos
-            if previous_pontos != 0:
-                incremento_5minutos = pontos_posicao - previous_pontos
-            else:
-                incremento_5minutos = 0
+            incremento_5minutos = pontos_posicao - previous_pontos if previous_pontos != 0 else 0
 
-            # Projeção dos pontos para os próximos 48 dias
-            projeção_48_dias = pontos_posicao + (incremento_5minutos * TOTAL_MINUTOS_RESTANTES)
+            # Projeção dos pontos até 29 de agosto
+            minutos_restantes = get_remaining_minutes()
+            projeção = pontos_posicao + (incremento_5minutos * minutos_restantes)
 
             # Montar a mensagem
             mensagem = (
-                f"📊 **Pontos da posição {posicao_atual} do leaderboard**: {pontos_posicao:,}\n"
-                f"📍 **Posição Atual**: {posicao} \n"
+                f"📊 **Pontos da posição {posicao_fixa} do leaderboard**: {pontos_posicao:,}\n"
+                f"📍 **Posição Atual**: {posicao}\n"
                 f"🕒 **Incremento nos últimos 5 minutos**: {incremento_5minutos:,} pontos\n"
-                f"🧮 **Projeção para os próximos 48 dias**: {int(projeção_48_dias):,} pontos"
+                f"📅 **Dias restantes até 29/08/2025**: {get_remaining_days()} dias\n"
+                f"🧮 **Projeção até 29/08/2025**: {int(projeção):,} pontos"
             )
 
             print(mensagem)
             await enviar_telegram(mensagem)
 
             previous_pontos = pontos_posicao  # Atualizar os pontos para a próxima checagem
-            await asyncio.sleep(300)  # A cada 5 minutos (300 segundos)
+            await asyncio.sleep(300)  # A cada 5 minutos
 
-# Função principal para rodar o loop
+# Função principal para rodar o loop do leaderboard
 async def main_loop():
     previous_total = 0  # Armazenar o total da checagem anterior
     while True:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
             # Calcular pontos totais no leaderboard
             total_atual = await calcular_total()
 
             # Calcular o incremento total do leaderboard nos últimos 30 segundos
-            if previous_total != 0:
-                incremento_30segundos_total = total_atual - previous_total
-            else:
-                incremento_30segundos_total = 0
+            incremento_30segundos_total = total_atual - previous_total if previous_total != 0 else 0
 
-            # Projeção total do leaderboard para os próximos 48 dias
-            projeção_48_dias_total = total_atual + (incremento_30segundos_total * TOTAL_MINUTOS_RESTANTES)
+            # Projeção total do leaderboard até 29 de agosto
+            minutos_restantes = get_remaining_minutes()
+            projeção_total = total_atual + (incremento_30segundos_total * minutos_restantes)
 
             # Montar a mensagem
             mensagem = (
                 f"📊 **Total atual de pontos do leaderboard**: {total_atual:,}\n"
                 f"🕒 **Incremento nos últimos 30 segundos**: {incremento_30segundos_total:,} pontos\n"
-                f"🧮 **Projeção total do leaderboard para os próximos 48 dias**: {int(projeção_48_dias_total):,} pontos"
+                f"📅 **Dias restantes até 29/08/2025**: {get_remaining_days()} dias\n"
+                f"🧮 **Projeção total até 29/08/2025**: {int(projeção_total):,} pontos"
             )
 
             print(mensagem)
             await enviar_telegram(mensagem)
 
             previous_total = total_atual  # Atualizar o total para a próxima checagem
-            await asyncio.sleep(30)  # A cada 30 segundos (30 segundos)
+            await asyncio.sleep(30)  # A cada 30 segundos
 
 # Rodar as funções em paralelo
 async def run():
-    # Inicia o trackeamento da posição 72 (ou 68 ou 85) e do leaderboard
     task1 = asyncio.create_task(main_loop())
     task2 = asyncio.create_task(trackear_posicao())
     await asyncio.gather(task1, task2)
 
-asyncio.run(run())
+if __name__ == "__main__":
+    asyncio.run(run())
