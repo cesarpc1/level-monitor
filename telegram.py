@@ -13,7 +13,7 @@ url_base = "https://api.level.money/v1/xp/balances/leaderboard?page={}&take=100"
 
 # Datas finais
 END_DATE_LEADERBOARD = date(2025, 8, 29)  # Para o leaderboard geral
-END_DATE_WALLET = date(2025, 5, 28)       # Para a carteira 68
+END_DATE_WALLET = date(2025, 5, 28)       # Para a carteira 67
 
 # Função para calcular dias restantes até a data especificada
 def get_remaining_days(end_date):
@@ -25,7 +25,7 @@ def get_remaining_days(end_date):
 def get_remaining_minutes(end_date):
     return get_remaining_days(end_date) * 24 * 60  # Dias restantes * horas * minutos
 
-# Função para buscar a posição desejada (68)
+# Função para buscar a posição desejada (67)
 async def buscar_posicao_desejada(client, posicao_desejada):
     url = url_base.format(1)
     try:
@@ -82,9 +82,9 @@ async def enviar_telegram(mensagem):
         except Exception as e:
             print(f"❌ Erro ao enviar para Telegram: {e}")
 
-# Função para trackear a posição 68
+# Função para trackear a posição 67
 async def trackear_posicao():
-    posicao_fixa = 68  # Sempre trackear a posição 68
+    posicao_fixa = 67  # Sempre trackear a posição 67
     previous_pontos = 0  # Armazenar os pontos da posição anterior
     previous_posicao = None  # Armazenar a posição anterior para verificar movimento
     while True:
